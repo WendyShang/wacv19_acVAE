@@ -37,7 +37,7 @@ function train()
   print_freq = opt.print_freq or 1
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
   local size = trainLoader:size()
-  local N, err_vae_encoder_total, err_vae_decoder_total, err_gan_total, iteration = 0, 0.0, 0.0, 0.0, 0
+  local N, err_vae_encoder_total, err_vae_decoder_total, err_gan_total = 0, 0.0, 0.0, 0.0
   local tic = torch.tic()
   local dataTimer = torch.Timer()
   for t, sample in trainLoader:run() do
@@ -47,6 +47,7 @@ function train()
 
     -- load data and augmentation (horizontal flip)
     local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
+    local inputs = {input_attr:cuda(), input_im:cuda()}
 
     --[[  update from reconstruction
           forward pass: cvae_encoder -> sampling_z -> cvae_decoder 
@@ -54,55 +55,53 @@ function train()
     --]]
 
     -- encoder > sampling > decoder
-    local output_mean_log_var = cvae_encoder:forward({input_attr, input_im});
+    local output_mean_log_var = cvae_encoder:forward({inputs[1], inputs[2]});
     local latent_z = sampling_z:forward(output_mean_log_var):clone()
-    local reconstruction = cvae_decoder:forward({input_attr, latent_z}):clone()
+    local reconstruction = cvae_decoder:forward({inputs[1], latent_z}):clone()
 
 
     -- prior > KL divergence
-    local output_prior = prior:forward(input_attr)
+    local output_prior = prior:forward(inputs[1])
     KLDerr = KLD:forward(output_mean_log_var, output_prior)
     dKLD_dtheta = KLD:backward(output_mean_log_var, output_prior)
     for j = 1,4 do dKLD_dtheta[j]:mul(opt.alpha) end
     
     -- loss & backprop & optimize
-    local Dislikerr = ReconCriterion:forward(reconstruction, input_im)
-    local df_do = ReconCriterion:backward(reconstruction, input_im)
-    local df_ddecoder = cvae_decoder:updateGradInput({input_attr, latent_z}, df_do)
+    local Dislikerr = ReconCriterion:forward(reconstruction, inputs[2])
+    local df_do = ReconCriterion:backward(reconstruction, inputs[2])
+    local df_ddecoder = cvae_decoder:updateGradInput({inputs[1], latent_z}, df_do)
     local df_dsampler = sampling_z:updateGradInput(output_mean_log_var, df_ddecoder[2])
     cvae_encoder:zeroGradParameters()
-    cvae_encoder:backward({input_attr, input_im}, {df_dsampler[1] + dKLD_dtheta[1], df_dsampler[2] + dKLD_dtheta[2]})
+    cvae_encoder:backward({inputs[1], inputs[2]}, {df_dsampler[1] + dKLD_dtheta[1], df_dsampler[2] + dKLD_dtheta[2]})
     optim[opt.optimization](f_vae_encoder, parameterscvae_encoder, optimStatecvae_encoder)
     local err_vae_encoder = Dislikerr + KLDerr * opt.alpha
     err_vae_encoder_total = err_vae_encoder_total + err_vae_encoder
 
     -- update prior and optimize 
     prior:zeroGradParameters()
-    prior:backward(input_attr, {dKLD_dtheta[3], dKLD_dtheta[4]}) 
+    prior:backward(inputs[1], {dKLD_dtheta[3], dKLD_dtheta[4]}) 
     optim[opt.optimization](f_prior, parametersPrior, optimState_prior)
     local err_prior = Dislikerr + KLDerr * (opt.alpha) * 0.5
 
     -- update cvae_decoder and optimize
     cvae_decoder:zeroGradParameters();
-    cvae_decoder:backward({input_attr, latent_z}, df_do)
+    cvae_decoder:backward({inputs[1], latent_z}, df_do)
     optim[opt.optimization](f_vae_decoder, parameterscvae_decoder, optimStatecvae_decoder)
     err_vae_decoder = Dislikerr 
     err_vae_decoder_total = err_vae_decoder_total + err_vae_decoder
 
     -- print scores
-    iteration = iteration + 1
     if (t+1) % print_freq == 0 or t == size then
       -- print only every 10 epochs
       print((' | Train: [%d][%d/%d]    Time %.3f (%.3f)  encoder %7.3f (%7.3f)  decoder %7.3f (%7.3f)'):format(
          epoch, t, size, timer:time().real, dataTime, err_vae_encoder, err_vae_encoder_total/N, err_vae_decoder, err_vae_decoder_total/N))
-      iteration = 0.0, 0.0, 0.0
     end
     latent_z, df_do = nil, nil
     timer:reset()
     dataTimer:reset()
     collectgarbage()
   end
-  print(('Train loss (vae encoder, vae decoder: '..'%.2f ,'..'%.2f ,'):format(err_vae_encoder_total/N, err_vae_decoder_total/N))
+  print(('Train loss (vae encoder, vae decoder: '..'%.3f ,'..'%.3f'):format(err_vae_encoder_total/N, err_vae_decoder_total/N))
 end
 
 function val()
