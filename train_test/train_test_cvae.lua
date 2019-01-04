@@ -3,7 +3,6 @@ optim = require 'optim'
 -- load models and training criterions
 local cvae_encoder, cvae_decoder, prior, sampling_z = table.unpack(models)
 local KLD, ReconCriterion = table.unpack(criterions)
-local sampling_z2 = sampling_z:clone()
 local optimStatecvae_encoder, optimStatecvae_decoder,optimStatePrior
 
 -- reload if previous checkpoint exists
@@ -11,7 +10,7 @@ local optimStatecvae_encoder, optimStatecvae_decoder,optimStatePrior
 if opt.retrain ~= 'none' and opt.optimState ~= 'none' then
   local models_resume = torch.load(opt.retrain)
   local states_resume = torch.load(opt.optimState)
-  cvae_encoder, cvae_decoder, prior = nil, nil
+  cvae_encoder, cvae_decoder, prior = nil, nil, nil
   cvae_encoder, cvae_decoder, prior = table.unpack(models_resume)
   optimStatecvae_encoder, optimStatecvae_decoder, optimStatePrior = table.unpack(states_resume)
   collectgarbage()
@@ -46,10 +45,10 @@ function train()
     N = N + 1
     local timer = torch.Timer()
     local dataTime = dataTimer:time().real
-    local reconstruction_sample, z_sample, latent_z, df_do
+    local reconstruction_sample, latent_z, df_do
 
     -- load data and augmentation (horizontal flip)
-    input_im, input_attr = sample.input:cuda(), sample.target:cuda()
+    local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
 
     --[[  update from reconstruction
           forward pass: cvae_encoder -> sampling_z -> cvae_decoder 
@@ -58,7 +57,7 @@ function train()
 
     -- encoder > sampling > decoder
     local output_mean_log_var = cvae_encoder:forward({input_attr, input_im});
-    latent_z = sampling_z(output_mean_log_var):clone()
+    local latent_z = sampling_z:forward(output_mean_log_var):clone()
     reconstruction = cvae_decoder:forward({input_attr, latent_z}):clone()
 
 
@@ -100,7 +99,7 @@ function train()
          epoch, t, size, timer:time().real, dataTime, err_vae_encoder, err_vae_encoder_total/N, err_vae_decoder, err_vae_decoder_total/N))
       iteration = 0.0, 0.0, 0.0
     end
-    reconstruction_sample, z_sample, latent_z, df_do, Dislikerr = nil, nil, nil, nil, nil
+    reconstruction_sample, latent_z, df_do, Dislikerr = nil, nil, nil, nil
     timer:reset()
     dataTimer:reset()
     collectgarbage()
@@ -151,6 +150,6 @@ function val()
     end
     parameterscvae_encoder, gradParameterscvae_encoder = cvae_encoder:getParameters()
     parameterscvae_decoder, gradParameterscvae_decoder = cvae_decoder:getParameters()
-    parametersPrior,       gradParametersPrior         = prior:getParameters()
+    parametersPrior,        gradParametersPrior        = prior:getParameters()
     print('Saved image to: ' .. opt.save)
 end
