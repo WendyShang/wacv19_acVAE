@@ -91,7 +91,7 @@ function train()
     err_vae_decoder_total = err_vae_decoder_total + err_vae_decoder
 
     -- print scores
-    if (t+1) % print_freq == 0 or t == size then
+    if t % print_freq == 0 or t == size then
       -- print only every 10 epochs
       print((' | Train: [%d][%d/%d]    Time %.3f (%.3f)  encoder %7.3f (%7.3f)  decoder %7.3f (%7.3f)'):format(
          epoch, t, size, timer:time().real, dataTime, err_vae_encoder, err_vae_encoder_total/N, err_vae_decoder, err_vae_decoder_total/N))

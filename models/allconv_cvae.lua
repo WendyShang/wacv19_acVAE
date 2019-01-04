@@ -28,7 +28,7 @@ local function createModel(opt)
 
       -- conv1: 64 x 64 --> 32 x 32
       encoder:add(cudnn.SpatialConvolution(6, baseChannels, 5, 5, 2, 2, 2, 2))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels, 1e-6, 0.9))
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom)
       encoder:add(ConcatAct())
       encoder:add(nn.JoinTable(2))
       encoder:add(cudnn.ReLU(true))
@@ -36,7 +36,7 @@ local function createModel(opt)
 
       -- conv2: 32 x 32 --> 16 x 16
       encoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 2, 2, 1, 1))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels, 1e-6, 0.9))
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder:add(ConcatAct())
       encoder:add(nn.JoinTable(2))
       encoder:add(cudnn.ReLU(true))
@@ -44,7 +44,7 @@ local function createModel(opt)
 
       -- conv3-1, conv3-2: 16 x 16 --> 8 x 8
       encoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 2, 2, 1, 1))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels, 1e-6, 0.9))
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder:add(ConcatAct())
       encoder:add(nn.JoinTable(2))
       encoder:add(cudnn.ReLU(true))
