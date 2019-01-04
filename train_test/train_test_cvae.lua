@@ -40,12 +40,10 @@ function train()
   local N, err_vae_encoder_total, err_vae_decoder_total, err_gan_total, iteration = 0, 0.0, 0.0, 0.0, 0
   local tic = torch.tic()
   local dataTimer = torch.Timer()
-  local reconstruction, input_im, input_attr
   for t, sample in trainLoader:run() do
     N = N + 1
     local timer = torch.Timer()
     local dataTime = dataTimer:time().real
-    local reconstruction_sample, latent_z, df_do
 
     -- load data and augmentation (horizontal flip)
     local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
@@ -58,7 +56,7 @@ function train()
     -- encoder > sampling > decoder
     local output_mean_log_var = cvae_encoder:forward({input_attr, input_im});
     local latent_z = sampling_z:forward(output_mean_log_var):clone()
-    reconstruction = cvae_decoder:forward({input_attr, latent_z}):clone()
+    local reconstruction = cvae_decoder:forward({input_attr, latent_z}):clone()
 
 
     -- prior > KL divergence
@@ -93,63 +91,63 @@ function train()
 
     -- print scores
     iteration = iteration + 1
-    if t % print_freq == 1 or t == size then
+    if (t+1) % print_freq == 0 or t == size then
       -- print only every 10 epochs
       print((' | Train: [%d][%d/%d]    Time %.3f (%.3f)  encoder %7.3f (%7.3f)  decoder %7.3f (%7.3f)'):format(
          epoch, t, size, timer:time().real, dataTime, err_vae_encoder, err_vae_encoder_total/N, err_vae_decoder, err_vae_decoder_total/N))
       iteration = 0.0, 0.0, 0.0
     end
-    reconstruction_sample, latent_z, df_do, Dislikerr = nil, nil, nil, nil
+    latent_z, df_do = nil, nil
     timer:reset()
     dataTimer:reset()
     collectgarbage()
   end
-  print(('Train loss (vae encoder, vae decoder: '..'%.2f ,'..'%.2f ,'):format(err_cvae_encoder_total/N, err_cvae_decoder_total/N))
+  print(('Train loss (vae encoder, vae decoder: '..'%.2f ,'..'%.2f ,'):format(err_vae_encoder_total/N, err_vae_decoder_total/N))
 end
 
 function val()
-    cvae_encoder:evaluate(); cvae_decoder:evaluate(); prior:evaluate();
+  cvae_encoder:evaluate(); cvae_decoder:evaluate(); prior:evaluate();
 
-    if (val_im == nil) and (val_attr == nil) then
-      for n, sample in valLoader:run() do
-        if n == 1 then
-          val_im, val_attr = sample.input, sample.target
-          break;
-        end
+  if (val_im == nil) and (val_attr == nil) then
+    for n, sample in valLoader:run() do
+      if n == 1 then
+        val_im, val_attr = sample.input, sample.target
+        break;
       end
-      val_im, val_attr = val_im:cuda(), val_attr:cuda()
     end
+    val_im, val_attr = val_im:cuda(), val_attr:cuda()
+  end
 
-    if epoch == 1 then
-      image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im:float():add(1):mul(0.5)))
-    end
+  if epoch == 1 then
+    image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im:float():add(1):mul(0.5)))
+  end
 
-    --(1) test reconstruction 
-    cvae_encoder:forward({val_attr,val_im})
-    local val_latent_z = sampling_z:forward(cvae_encoder.output)
-    local reconstruction_save = cvae_decoder:forward({val_attr,val_latent_z})
-    image.save(opt.save .. 'recon_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha .. '.png', image.toDisplayTensor(reconstruction_save:float():add(1):mul(0.5)))
+  --(1) test reconstruction 
+  cvae_encoder:forward({val_attr,val_im})
+  local val_latent_z = sampling_z:forward(cvae_encoder.output)
+  local reconstruction_save = cvae_decoder:forward({val_attr,val_latent_z})
+  image.save(opt.save .. 'recon_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha .. '.png', image.toDisplayTensor(reconstruction_save:float():add(1):mul(0.5)))
 
-    --(2) test generation
-    val_prior = prior:forward(val_attr)
-    local val_latent_z = sampling_z:forward(val_prior)
-    local generation_val = cvae_decoder:forward({val_attr,val_latent_z})
-    image.save( opt.save .. 'gen_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha ..  '.png', image.toDisplayTensor(generation_val:float():add(1):mul(0.5)))
-    parameterscvae_encoder, gradParameterscvae_encoder    = nil, nil
-    parameterscvae_decoder, gradParameterscvae_decoder    = nil, nil
-    parametersPrior,        gradParametersPrior           = nil, nil
-    collectgarbage()
-    if epoch % opt.epochStep == 0 then
-       torch.save(opt.save .. 'models_' .. epoch .. '.t7', {cvae_encoder:clearState(),  cvae_decoder:clearState(), prior:clearState()})
-       torch.save(opt.save .. 'states_' .. epoch .. '.t7', {optimStatecvae_encoder, optimStatecvae_decoder, optimStatePrior})
-    end
-    if epoch % opt.step == 0 then
-      optimStatecvae_encoder.learningRate  = optimStatecvae_encoder.learningRate*opt.decayLR
-      optimStatecvae_decoder.learningRate  = optimStatecvae_decoder.learningRate*opt.decayLR
-      optimStatePrior.learningRate        = optimStatePrior.learningRate*opt.decayLR
-    end
-    parameterscvae_encoder, gradParameterscvae_encoder = cvae_encoder:getParameters()
-    parameterscvae_decoder, gradParameterscvae_decoder = cvae_decoder:getParameters()
-    parametersPrior,        gradParametersPrior        = prior:getParameters()
-    print('Saved image to: ' .. opt.save)
+  --(2) test generation
+  val_prior = prior:forward(val_attr)
+  local val_latent_z = sampling_z:forward(val_prior)
+  local generation_val = cvae_decoder:forward({val_attr,val_latent_z})
+  image.save( opt.save .. 'gen_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha ..  '.png', image.toDisplayTensor(generation_val:float():add(1):mul(0.5)))
+  parameterscvae_encoder, gradParameterscvae_encoder    = nil, nil
+  parameterscvae_decoder, gradParameterscvae_decoder    = nil, nil
+  parametersPrior,        gradParametersPrior           = nil, nil
+  collectgarbage()
+  if epoch % opt.epochStep == 0 then
+     torch.save(opt.save .. 'models_' .. epoch .. '.t7', {cvae_encoder:clearState(),  cvae_decoder:clearState(), prior:clearState()})
+     torch.save(opt.save .. 'states_' .. epoch .. '.t7', {optimStatecvae_encoder, optimStatecvae_decoder, optimStatePrior})
+  end
+  if epoch % opt.step == 0 then
+    optimStatecvae_encoder.learningRate  = optimStatecvae_encoder.learningRate*opt.decayLR
+    optimStatecvae_decoder.learningRate  = optimStatecvae_decoder.learningRate*opt.decayLR
+    optimStatePrior.learningRate        = optimStatePrior.learningRate*opt.decayLR
+  end
+  parameterscvae_encoder, gradParameterscvae_encoder = cvae_encoder:getParameters()
+  parameterscvae_decoder, gradParameterscvae_decoder = cvae_decoder:getParameters()
+  parametersPrior,        gradParametersPrior        = prior:getParameters()
+  print('Saved image to: ' .. opt.save)
 end
