@@ -84,15 +84,12 @@ require('train_test/train_test_' .. opt.latentType)
 
 
 --Training
-if opt.latentType == 'cgan' then
-   train()
-else
-  epoch = opt.epochNumber
-  for i = opt.epochNumber, opt.nEpochs do
-     train(opt)
-     collectgarbage()
-     val(opt)
-     collectgarbage()
-     epoch = epoch + 1
-  end
+epoch = opt.epochNumber
+for i = opt.epochNumber, opt.nEpochs do
+   train(opt)
+   collectgarbage()
+   val(opt)
+   collectgarbage()
+   epoch = epoch + 1
 end
+
