@@ -28,7 +28,7 @@ local function createModel(opt)
 
       -- conv1: 64 x 64 --> 32 x 32
       encoder:add(cudnn.SpatialConvolution(6, baseChannels, 5, 5, 2, 2, 2, 2))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom)
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder:add(ConcatAct())
       encoder:add(nn.JoinTable(2))
       encoder:add(cudnn.ReLU(true))
