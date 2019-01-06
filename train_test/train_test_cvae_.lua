@@ -66,9 +66,11 @@ function train()
   local inputs
   local inputs_im
   local inputs_attr
+  local dataTimer = torch.Timer()
   for t,v in ipairs(indices) do
     N = N + 1
     local timer = torch.Timer()
+    local dataTime = dataTimer:time().real
 
     -- load data and augmentation (horizontal flip)
     local inputs_im_original = data.train_im:index(1,v)
