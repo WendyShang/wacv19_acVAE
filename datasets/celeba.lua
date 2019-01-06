@@ -65,16 +65,16 @@ end
 function CelebaDataset:preprocess()
    if self.split == 'train' then
       return t.Compose{
-         t.ScaleSquare(self.opt.scales[self.opt.stage]),
+         t.ScaleSquare(self.opt.scales[self.opt.stage], 'bilinear'),
          t.HorizontalFlip(0.5),
       }
    elseif self.split == 'val' then
       return t.Compose{
-         t.ScaleSquare(self.opt.scales[self.opt.stage]),
+         t.ScaleSquare(self.opt.scales[self.opt.stage], 'bilinear'),
       }
    elseif self.split == 'test' then
       return t.Compose{
-         t.ScaleSquare(self.opt.scales[self.opt.stage]),
+         t.ScaleSquare(self.opt.scales[self.opt.stage], 'bilinear'),
       }
    else
       error('invalid split: ' .. self.split)
