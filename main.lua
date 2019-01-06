@@ -51,7 +51,7 @@ else
   opt.save = opt.save  .. '_alpha_' .. opt.alpha
 end
 opt.save = opt.save .. '_beta1_' .. opt.beta1
-if string.find(opt.latentType, 'lstm') ~= nil and opt.timeStep > 0 then
+if (string.find(opt.latentType, 'crvae') ~= nil or string.find(opt.latentType, 'acvae') ~= nil) and opt.timeStep > 0 then
   opt.save = opt.save .. '_ts_' .. opt.timeStep
 end
 if opt.kappa > 0 then
