@@ -18,6 +18,7 @@ local function createModel(opt)
    local gan_feature = nn.Sequential()
    local recon = nn.Sequential()
    local prior = nn.Sequential()
+   
    local baseChannels = opt.baseChannels
    local w = opt.latentDims[1]
    local z = opt.nf
@@ -26,7 +27,7 @@ local function createModel(opt)
    local time_step = opt.timeStep
    local attribute_dim = opt.attrDim
 
-   if opt.dataset == 'bird' or opt.dataset == 'celeba' then
+   if opt.dataset == 'celeba' then
       -----------------------------------
       -- Encoder (Inference network) ----
       -- convolution net -> LSTM layer --
@@ -43,7 +44,7 @@ local function createModel(opt)
 
       -- conv1: 64 x 64 --> 32 x 32
       encoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 5, 5, 2, 2, 2, 2))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder:add(ConcatAct())
       encoder:add(nn.JoinTable(2))
       encoder:add(cudnn.ReLU(true))
@@ -51,7 +52,7 @@ local function createModel(opt)
 
       -- conv2: 32 x 32 --> 16 x 16
       encoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 2, 2, 1, 1))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps,mom))
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder:add(ConcatAct())
       encoder:add(nn.JoinTable(2))
       encoder:add(cudnn.ReLU(true))
@@ -59,23 +60,23 @@ local function createModel(opt)
 
       -- conv3-1, conv3-2: 16 x 16 --> 8 x 8
       encoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 2, 2, 1, 1))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder:add(ConcatAct())
       encoder:add(nn.JoinTable(2))
       encoder:add(cudnn.ReLU(true))
       baseChannels = baseChannels * 2
       encoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 1, 1, 1, 1))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder:add(nn.LeakyReLU(0.1))
 
       -- conv4-1, conv4-2: 8 x 8 --> 4 x 4
       encoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 2, 2, 1, 1))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder:add(ConcatAct())
       encoder:add(nn.JoinTable(2))
       encoder:add(cudnn.ReLU(true))
       encoder:add(cudnn.SpatialConvolution(baseChannels*2, baseChannels, 3, 3, 1, 1, 1, 1))
-      encoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder:add(nn.LeakyReLU(0.1))
       encoder:add(nn.View(time_step, baseChannels/time_step, w, w):setNumInputDims(4))
 
@@ -176,36 +177,36 @@ local function createModel(opt)
 
       -- deconv5: 4 x 4 --> 4 x 4
       decoder:add(cudnn.SpatialConvolution(z, baseChannels, 3, 3, 1, 1, 1, 1))
-      decoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      decoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
 
       -- deconv4-1, deconv4-2: 4 x 4 --> 8 x 8
       decoder:add(cudnn.SpatialFullConvolution(baseChannels, baseChannels, 4, 4, 2, 2, 1, 1))
-      decoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      decoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       decoder:add(nn.LeakyReLU(0.1))
       decoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 1, 1, 1, 1))
-      decoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      decoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       decoder:add(nn.LeakyReLU(0.1))
       baseChannels = baseChannels/2
 
       -- deconv3: 8 x 8 --> 16 x 16
       decoder:add(cudnn.SpatialFullConvolution(baseChannels*2, baseChannels, 4, 4, 2, 2, 1, 1))
-      decoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      decoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       decoder:add(nn.LeakyReLU(0.1))
       baseChannels = baseChannels/2
 
       -- deconv2: 16 x 16 --> 32 x 32
       decoder:add(cudnn.SpatialFullConvolution(baseChannels*2, baseChannels, 4, 4, 2, 2, 1, 1))
-      decoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      decoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       decoder:add(nn.LeakyReLU(0.1))
 
       -- deconv1: 32 x 32 --> 64 x 64
       decoder:add(cudnn.SpatialFullConvolution(baseChannels, baseChannels, 4, 4, 2, 2, 1, 1))
-      decoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      decoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       decoder:add(nn.LeakyReLU(0.1))
 
       -- tanH: 64 x 64 --> 64 x 64
       decoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 1, 1, 1, 1))
-      decoder:add(nn.SpatialBatchNormalization(baseChannels,eps,mom))
+      decoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       decoder:add(nn.LeakyReLU(0.1))
 
       to_rgb:add(cudnn.SpatialConvolution(baseChannels, 3, 1, 1, 1, 1, 0, 0))
@@ -268,10 +269,10 @@ local function createModel(opt)
 
 
       recon:add(cudnn.SpatialConvolution(z+baseChannels*8, baseChannels*2, 3, 3, 1, 1, 1, 1))
-      recon:add(nn.SpatialBatchNormalization(baseChannels*2,eps,mom))
+      recon:add(nn.SpatialBatchNormalization(baseChannels*2, eps, mom))
       recon:add(nn.LeakyReLU(0.2, true))
       recon:add(cudnn.SpatialConvolution(baseChannels*2, z, 1, 1))
-      recon:add(nn.SpatialBatchNormalization(z,eps,mom))
+      recon:add(nn.SpatialBatchNormalization(z, eps, mom))
       recon:add(nn.LeakyReLU(0.1, true))
       recon:add(nn.View(z*w*w))
       recon:add(nn.Linear(z*w*w, z*w*w))
