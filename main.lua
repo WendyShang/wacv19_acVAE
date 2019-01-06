@@ -25,7 +25,7 @@ opts = require 'opts';
 require 'utils.RNNinit';
 
 
---image_utils = require 'utils.image_utils';
+image_utils = require 'utils.image_utils';
 
 
 --House Keeping

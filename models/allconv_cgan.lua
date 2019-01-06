@@ -21,7 +21,8 @@ local function createModel(opt)
       -- Decoder (Generation network)  --
       -- FC layer -> deconvolution net --
       -----------------------------------
-
+      baseChannels = baseChannels * 8
+      
       local decoder_attribute = nn.Sequential()
       decoder_attribute:add(nn.Linear(attribute_dim, w*w*z))
       decoder_attribute:add(nn.LeakyReLU(0.1))
