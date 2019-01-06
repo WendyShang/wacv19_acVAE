@@ -73,9 +73,7 @@ function train()
   epoch = epoch or 1
   print_freq = opt.print_freq or 1
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
-  local indices = torch.randperm(data.train_im:size(1)):long():split(opt.batchSize)
-  indices[#indices] = nil
-  local size = #indices
+  local size = trainLoader:size()
   local N, err_vae_encoder_total, err_vae_decoder_total, err_gan_total = 0, 0.0, 0.0, 0.0
   local reconstruction, inputs, input_im, input_attr
   local gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0
@@ -95,7 +93,7 @@ function train()
     local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
     local inputs = {input_attr:cuda(), input_im:cuda()}
     collectgarbage()
-    
+
     local reconstruction_sample, z_sample, latent_z, df_do
 
     --[[
