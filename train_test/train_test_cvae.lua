@@ -49,7 +49,7 @@ function train()
     local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
     local inputs = {input_attr:cuda(), input_im:cuda()}
     collectgarbage()
-    
+
     --[[  update from reconstruction
           forward pass: cvae_encoder -> sampling_z -> cvae_decoder 
           backward pass: data recon -> sampling_z + KLD -> cvae_encoder
@@ -91,9 +91,8 @@ function train()
     err_vae_decoder = Dislikerr 
     err_vae_decoder_total = err_vae_decoder_total + err_vae_decoder
 
-    -- print scores
+    -- print logs
     if t % print_freq == 0 or t == size then
-      -- print only every 10 epochs
       print((' | Train: [%d][%d/%d]    Time %.3f (%.3f)  encoder %7.3f (%7.3f)  decoder %7.3f (%7.3f)'):format(
          epoch, t, size, timer:time().real, dataTime, err_vae_encoder, err_vae_encoder_total/N, err_vae_decoder, err_vae_decoder_total/N))
     end
@@ -102,7 +101,7 @@ function train()
     dataTimer:reset()
     collectgarbage()
   end
-  print(('Train loss (vae encoder, vae decoder: '..'%.3f ,'..'%.3f'):format(err_vae_encoder_total/N, err_vae_decoder_total/N))
+  print(('Train loss (vae encoder, vae decoder: %.3f, %.3f'):format(err_vae_encoder_total/N, err_vae_decoder_total/N))
 end
 
 function val()
