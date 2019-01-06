@@ -21,7 +21,7 @@ function GKLDCriterion:updateOutput(info1, info2)
     local mean2, log_var2 = table.unpack(info2)
     local mean_diff_sq = torch.pow(mean1-mean2, 2)
     local var1 = torch.exp(log_var1)
-    local var2 = torch.cmax(torch.exp(log_var2), 0.00001)
+    local var2 = torch.exp(log_var2)
     local KLDelements = -0.5*(1+log_var1) + 0.5*log_var2 + 0.5*torch.cdiv(var1 + mean_diff_sq, var2)
     local output = torch.sum(KLDelements)
     if self.sizeAverage then
@@ -45,7 +45,7 @@ function GKLDCriterion:updateGradInput(info1, info2)
     local mean_diff = (mean1-mean2)
     local mean_diff_sq = torch.pow(mean_diff, 2)
     local var1 = torch.exp(log_var1)
-    local var2 = torch.cmax(torch.exp(log_var2), 0.00001)
+    local var2 = torch.exp(log_var2)
 
     self.gradInput = {}
 

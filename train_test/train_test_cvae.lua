@@ -48,7 +48,8 @@ function train()
     -- load data and augmentation (horizontal flip)
     local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
     local inputs = {input_attr:cuda(), input_im:cuda()}
-
+    collectgarbage()
+    
     --[[  update from reconstruction
           forward pass: cvae_encoder -> sampling_z -> cvae_decoder 
           backward pass: data recon -> sampling_z + KLD -> cvae_encoder
