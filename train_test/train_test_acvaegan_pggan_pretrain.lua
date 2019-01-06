@@ -184,7 +184,11 @@ function train(opt)
 
     -- load data and augmentation (horizontal flip)
     local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
-    local inputs = {input_attr:cuda(), input_im:cuda()}
+
+    -- generate attribute with attention
+    local attention_vector = attention:forward(inputs_attention)
+    local attention_attr   = attention_connection:forward({input_attr, attention_vector})
+    local inputs = {attention_attr, input_im}
     collectgarbage()
 
 
