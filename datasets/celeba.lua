@@ -38,7 +38,7 @@ end
 
 function CelebaDataset:_loadImage(path)
    local ok, input = pcall(function()
-      return 2.0*image.load(path, 3, 'float') - 1.0
+      return torch.min(torch.max(2.0*image.load(path, 3, 'float') - 1.0, -1.0), 1.0)
    end)
 
    -- Sometimes image.load fails because the file extension does not match the
