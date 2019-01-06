@@ -436,6 +436,7 @@ function val(opt)
     end
     val_im, val_attr = val_im:cuda(), val_attr:cuda()
   end
+  local val_inputs_attention = torch.ones(val_im:size(1), opt.attrDim, opt.timeStep):cuda()
 
   --(0) save the original image
   if epoch == 1 then
