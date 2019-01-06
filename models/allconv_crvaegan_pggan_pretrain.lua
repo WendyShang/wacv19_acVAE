@@ -36,7 +36,7 @@ local function createModel(opt)
       from_rgb_encoder:add(nn.JoinTable(2))
       from_rgb_encoder:add(cudnn.ReLU(true))
       from_rgb_encoder:add(cudnn.SpatialConvolution(6, baseChannels, 1, 1, 1, 1, 0, 0))
-      from_rgb_encoder:add(nn.SpatialBatchNormalization(baseChannels, 1e-6, 0.9))
+      from_rgb_encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       from_rgb_encoder:add(cudnn.ReLU(false))
 
       local encoder = nn.Sequential()
