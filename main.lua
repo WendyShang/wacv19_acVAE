@@ -22,7 +22,7 @@ opts = require 'opts';
 --require 'utils.Reparametrize'
 --require 'utils.Uniform';
 --require 'utils.KLDCriterion';
---require 'utils.RNNinit';
+require 'utils.RNNinit';
 
 
 --image_utils = require 'utils.image_utils';
