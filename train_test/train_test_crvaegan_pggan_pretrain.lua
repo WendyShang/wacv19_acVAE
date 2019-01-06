@@ -406,19 +406,19 @@ function val(opt)
   
   --(1) test reconstruction 
   from_rgb_encoder:forward(val_im)
-  vae_encoder:forward({val_attr_tensor,from_rgb_encoder.output})
+  vae_encoder:forward({val_attr,from_rgb_encoder.output})
   var_encoder:forward(vae_encoder.output)
   local val_latent_z = sampling_z:forward(var_encoder.output)
-  var_decoder:forward({val_attr_tensor,val_latent_z})
+  var_decoder:forward({val_attr,val_latent_z})
   vae_decoder:forward(var_decoder.output)
   reconstruction_val = to_rgb:forward(vae_decoder.output)
   reconstruction_val = reconstruction_val:float()
   image.save(opt.save .. 'recon_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha1 .. '_' .. opt.alpha2 .. '.png', image.toDisplayTensor(reconstruction_val:add(1):mul(0.5)))
 
   --(2) test generation
-  val_prior = prior:forward(val_attr_tensor)
+  val_prior = prior:forward(val_attr)
   local val_latent_z = sampling_z:forward(val_prior)
-  var_decoder:forward({val_attr_tensor,val_latent_z})
+  var_decoder:forward({val_attr,val_latent_z})
   vae_decoder:forward(var_decoder.output)
   local generation_val = to_rgb(vae_decoder.output)
   generation_val = generation_val:float()
