@@ -227,65 +227,63 @@ function train()
 end
 
 function val()
-    vae_encoder:evaluate(); vae_decoder:evaluate(); prior:evaluate(); disc:evaluate();
-    from_rgb_encoder:evaluate(); to_rgb:evaluate(); from_rgb:evaluate();
-    
-    local val_attr = data.val_attr[{{1, 128}}]
-    local val_im_original = data.val_im[{{1, 128}}]
-    local val_attr_tensor = torch.Tensor(val_attr:size(1), val_attr:size(2))
-    local val_im = torch.Tensor(val_im_original:size(1), 3, opt.scales[1], opt.scales[1])
-    for i = 1, val_im_original:size(1) do
-      val_im[i] = opt.preprocess_train(image.scale(val_im_original[i], opt.scales[1], opt.scales[1]))
-      val_attr_tensor[i] = val_attr[i]
+  vae_encoder:evaluate(); vae_decoder:evaluate(); prior:evaluate(); disc:evaluate();
+  from_rgb_encoder:evaluate(); to_rgb:evaluate(); from_rgb:evaluate();
+  
+  if (val_im == nil) and (val_attr == nil) then
+    for n, sample in valLoader:run() do
+      if n == 1 then
+        val_im, val_attr = sample.input, sample.target
+        break;
+      end
     end
+    val_im, val_attr = val_im:cuda(), val_attr:cuda()
+  end
 
-    val_attr_tensor = val_attr_tensor:cuda()
-    val_im = val_im:cuda()
+  if epoch == 1 then
+    image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im_original:float():add(1):mul(0.5)))
+  end
+  --(1) test reconstruction 
+  from_rgb_encoder:forward(val_im)
+  vae_encoder:forward({val_attr_tensor, from_rgb_encoder.output})
+  local val_latent_z = sampling_z:forward(vae_encoder.output)
+  vae_decoder:forward({val_attr_tensor,val_latent_z})
+  local reconstruction_save = to_rgb:forward(vae_decoder.output)
+  image.save(opt.save .. 'recon_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha .. '.png', image.toDisplayTensor(reconstruction_save:float():add(1):mul(0.5)))
 
-    if epoch == 1 then
-      image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im_original:float():add(1):mul(0.5)))
-    end
-    --(1) test reconstruction 
-    from_rgb_encoder:forward(val_im)
-    vae_encoder:forward({val_attr_tensor, from_rgb_encoder.output})
-    local val_latent_z = sampling_z:forward(vae_encoder.output)
-    vae_decoder:forward({val_attr_tensor,val_latent_z})
-    local reconstruction_save = to_rgb:forward(vae_decoder.output)
-    image.save(opt.save .. 'recon_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha .. '.png', image.toDisplayTensor(reconstruction_save:float():add(1):mul(0.5)))
-
-    --(2) test generation
-    val_prior = prior:forward(val_attr_tensor)
-    local val_latent_z = sampling_z:forward(val_prior)
-    vae_decoder:forward({val_attr_tensor,val_latent_z})
-    local generation_val = to_rgb:forward(vae_decoder.output)
-    image.save( opt.save .. 'gen_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha ..  '.png', image.toDisplayTensor(generation_val:float():add(1):mul(0.5)))
-    params_enc,           gradParams_enc            = nil, nil
-    params_dec,           gradParams_dec            = nil, nil
-    params_prior,         gradParams_prior          = nil, nil
-    params_disc,          gradParams_disc           = nil, nil
-    params_from_rgb_enc,  gradParams_from_rgb_enc   = nil, nil
-    params_to_rgb,        gradParams_to_rgb         = nil, nil
-    params_from_rgb,      gradParams_from_rgb       = nil, nil
-    collectgarbage()
-    if epoch % opt.epochStep == 0 then
-       torch.save(opt.save .. 'models_' .. epoch .. '.t7', {vae_encoder:clearState(), from_rgb_encoder:clearState(), vae_decoder:clearState(), to_rgb:clearState(), prior:clearState(), from_rgb:clearState(), disc:clearState()})
-       torch.save(opt.save .. 'states_' .. epoch .. '.t7', {optimState_enc, optimState_from_rgb_enc, optimState_dec, optimState_to_rgb, optimState_prior, optimState_from_rgb, optimState_disc})
-    end
-    if epoch % opt.step == 0 then
-      optimState_enc.learningRate           = optimState_enc.learningRate*opt.decayLR
-      optimState_dec.learningRate           = optimState_dec.learningRate*opt.decayLR
-      optimState_prior.learningRate         = optimState_prior.learningRate*opt.decayLR
-      optimState_disc.learningRate          = optimState_disc.learningRate*opt.decayLR
-      optimState_from_rgb_enc.learningRate  = optimState_from_rgb_enc.learningRate*opt.decayLR
-      optimState_to_rgb.learningRate        = optimState_to_rgb.learningRate*opt.decayLR
-      optimState_from_rgb.learningRate      = optimState_from_rgb.learningRate*opt.decayLR
-    end
-    params_enc,           gradParams_enc          = vae_encoder:getParameters()
-    params_dec,           gradParams_dec          = vae_decoder:getParameters()
-    params_prior,         gradParams_prior        = prior:getParameters()
-    params_disc,          gradParams_disc         = disc:getParameters()
-    params_from_rgb_enc,  gradParams_from_rgb_enc = from_rgb_encoder:getParameters()
-    params_to_rgb,        gradParams_to_rgb       = to_rgb:getParameters()
-    params_from_rgb,      gradParams_from_rgb     = from_rgb:getParameters()
-    print('Saved image to: ' .. opt.save)
+  --(2) test generation
+  val_prior = prior:forward(val_attr_tensor)
+  local val_latent_z = sampling_z:forward(val_prior)
+  vae_decoder:forward({val_attr_tensor,val_latent_z})
+  local generation_val = to_rgb:forward(vae_decoder.output)
+  image.save( opt.save .. 'gen_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha ..  '.png', image.toDisplayTensor(generation_val:float():add(1):mul(0.5)))
+  params_enc,           gradParams_enc            = nil, nil
+  params_dec,           gradParams_dec            = nil, nil
+  params_prior,         gradParams_prior          = nil, nil
+  params_disc,          gradParams_disc           = nil, nil
+  params_from_rgb_enc,  gradParams_from_rgb_enc   = nil, nil
+  params_to_rgb,        gradParams_to_rgb         = nil, nil
+  params_from_rgb,      gradParams_from_rgb       = nil, nil
+  collectgarbage()
+  if epoch % opt.epochStep == 0 then
+     torch.save(opt.save .. 'models_' .. epoch .. '.t7', {vae_encoder:clearState(), from_rgb_encoder:clearState(), vae_decoder:clearState(), to_rgb:clearState(), prior:clearState(), from_rgb:clearState(), disc:clearState()})
+     torch.save(opt.save .. 'states_' .. epoch .. '.t7', {optimState_enc, optimState_from_rgb_enc, optimState_dec, optimState_to_rgb, optimState_prior, optimState_from_rgb, optimState_disc})
+  end
+  if epoch % opt.step == 0 then
+    optimState_enc.learningRate           = optimState_enc.learningRate*opt.decayLR
+    optimState_dec.learningRate           = optimState_dec.learningRate*opt.decayLR
+    optimState_prior.learningRate         = optimState_prior.learningRate*opt.decayLR
+    optimState_disc.learningRate          = optimState_disc.learningRate*opt.decayLR
+    optimState_from_rgb_enc.learningRate  = optimState_from_rgb_enc.learningRate*opt.decayLR
+    optimState_to_rgb.learningRate        = optimState_to_rgb.learningRate*opt.decayLR
+    optimState_from_rgb.learningRate      = optimState_from_rgb.learningRate*opt.decayLR
+  end
+  params_enc,           gradParams_enc          = vae_encoder:getParameters()
+  params_dec,           gradParams_dec          = vae_decoder:getParameters()
+  params_prior,         gradParams_prior        = prior:getParameters()
+  params_disc,          gradParams_disc         = disc:getParameters()
+  params_from_rgb_enc,  gradParams_from_rgb_enc = from_rgb_encoder:getParameters()
+  params_to_rgb,        gradParams_to_rgb       = to_rgb:getParameters()
+  params_from_rgb,      gradParams_from_rgb     = from_rgb:getParameters()
+  print('Saved image to: ' .. opt.save)
 end

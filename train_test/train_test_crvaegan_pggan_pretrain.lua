@@ -396,17 +396,15 @@ function val(opt)
   disc:evaluate(); disc_feature:evaluate(); recon:evaluate();
   from_rgb_encoder:evaluate(); from_rgb:evaluate(); to_rgb:evaluate();
 
-  local val_attr = data.val_attr[{{1, 128}}]
-  local val_im_original = data.val_im[{{1, 128}}]
-  local val_attr_tensor = torch.Tensor(val_attr:size(1), val_attr:size(2))
-  local val_im = torch.Tensor(val_im_original:size(1), 3, opt.scales[1], opt.scales[1])
-  for i = 1, val_im_original:size(1) do
-    val_im[i] = opt.preprocess_test(image.scale(val_im_original[i], opt.scales[1], opt.scales[1]))
-    val_attr_tensor[i] = val_attr[i]
+  if (val_im == nil) and (val_attr == nil) then
+    for n, sample in valLoader:run() do
+      if n == 1 then
+        val_im, val_attr = sample.input, sample.target
+        break;
+      end
+    end
+    val_im, val_attr = val_im:cuda(), val_attr:cuda()
   end
-
-  val_attr_tensor = val_attr_tensor:cuda()
-  val_im = val_im:cuda()
 
   --(0) save the original image
   if epoch == 1 then
