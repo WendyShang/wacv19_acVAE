@@ -443,7 +443,7 @@ function val(opt)
   
   --(1) test reconstruction
   local val_attention_vector = attention:forward(val_inputs_attention)
-  local val_attention_attr   = attention_connection:forward({val_attr_tensor, val_attention_vector})
+  local val_attention_attr   = attention_connection:forward({val_attr, val_attention_vector})
 
   from_rgb_encoder:forward(val_im)
   vae_encoder:forward({val_attention_attr,from_rgb_encoder.output})
