@@ -165,39 +165,27 @@ function train(opt)
   epoch = epoch or 1
   print_freq = opt.print_freq or 1
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
-  local indices = torch.randperm(data.train_im:size(1)):long():split(opt.batchSize)
-  indices[#indices] = nil
-  local size = #indices
+  local size = trainLoader:size()
   local N, KLD_total, Recon_total, ReconZ_total, err_gan_total = 0, 0.0, 0.0, 0.0, 0.0
   local reconstruction, input_im, input_attr
   local gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0
   local label_recon, label_sample, label_gan = torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda()
   local inputs_attention = torch.ones(opt.batchSize, opt.attrDim, opt.timeStep):cuda()
   local tic = torch.tic()
-  for t,v in ipairs(indices) do
+  local dataTimer = torch.Timer()
+  for t, sample in trainLoader:run() do
     N = N + 1
     local timer = torch.Timer()
+    local dataTime = dataTimer:time().real
 
     --[[
           load data (horizontal flip) 
     --]]
 
-    local input_im_original = data.train_im:index(1,v)
-    local input_attr_original = data.train_attr:index(1,v)
-
-    input_im = torch.Tensor(input_im_original:size(1), 3, opt.scales[1], opt.scales[1])
-    input_attr = torch.Tensor(input_attr_original:size(1), input_attr_original:size(2))
-    for i = 1, input_im_original:size(1) do
-      input_im[i] = opt.preprocess_train(image.scale(input_im_original[i], opt.scales[1], opt.scales[1]))
-      input_attr[i] = input_attr_original[i]
-    end
-    input_im, input_attr = input_im:cuda(), input_attr:cuda()
-
-    -- generate attribute with attention
-    local attention_vector = attention:forward(inputs_attention)
-    local attention_attr   = attention_connection:forward({input_attr, attention_vector})
-
-    inputs = {attention_attr, input_im}
+    -- load data and augmentation (horizontal flip)
+    local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
+    local inputs = {input_attr:cuda(), input_im:cuda()}
+    collectgarbage()
 
 
     --[[
@@ -415,7 +403,7 @@ function train(opt)
 
     -- print scores
     iteration = iteration + 1
-    if t % print_freq == 1 or t == size then
+    if t % print_freq == 0 or t == size then
       -- print only every 10 epochs
       print((' | Train: [%d][%d/%d]    Time %.3f  KL %7.3f (%7.3f)  recon %7.3f (%7.3f)  recon_Z %7.3f (%7.3f)  gan %7.3f (%7.3f)  gan update rate %.3f (erate %.3f)'):format(
           epoch, t, size, timer:time().real,  KLDerr, KLD_total/N, Dislikerr, Recon_total/N, ZDislikerr, ReconZ_total/N, gan_err, err_gan_total/N, gan_update_rate/iteration, gan_error_rate/iteration))
@@ -438,18 +426,15 @@ function val(opt)
   from_rgb_encoder:evaluate(); from_rgb:evaluate(); to_rgb:evaluate();
   attention:evaluate();
 
-  local val_attr = data.val_attr[{{1, 128}}]
-  local val_im_original = data.val_im[{{1, 128}}]
-  local val_attr_tensor = torch.Tensor(val_attr:size(1), val_attr:size(2))
-  local val_im = torch.Tensor(val_im_original:size(1), 3, opt.scales[1], opt.scales[1])
-  local val_inputs_attention = torch.ones(val_im:size(1), opt.attrDim, opt.timeStep):cuda()
-  for i = 1, val_im_original:size(1) do
-    val_im[i] = opt.preprocess_test(image.scale(val_im_original[i], opt.scales[1], opt.scales[1]))
-    val_attr_tensor[i] = val_attr[i]
+  if (val_im == nil) and (val_attr == nil) then
+    for n, sample in valLoader:run() do
+      if n == 1 then
+        val_im, val_attr = sample.input, sample.target
+        break;
+      end
+    end
+    val_im, val_attr = val_im:cuda(), val_attr:cuda()
   end
-
-  val_attr_tensor = val_attr_tensor:cuda()
-  val_im = val_im:cuda()
 
   --(0) save the original image
   if epoch == 1 then

@@ -159,35 +159,28 @@ function train(opt)
   epoch = epoch or 1
   print_freq = opt.print_freq or 1
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
-  local indices = torch.randperm(data.train_im:size(1)):long():split(opt.batchSize)
-  indices[#indices] = nil
-  local size = #indices
+  local size = trainLoader:size()
   local N, KLD_total, Recon_total, ReconZ_total, err_gan_total = 0, 0.0, 0.0, 0.0, 0.0
   local reconstruction, input_im, input_attr
   local gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0
   local label_recon, label_sample, label_gan = torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda()
   local tic = torch.tic()
-  for t,v in ipairs(indices) do
+  local dataTimer = torch.Timer()
+  for t, sample in trainLoader:run() do
     N = N + 1
     local timer = torch.Timer()
+    local dataTime = dataTimer:time().real
 
     --[[
           load data (horizontal flip) 
     --]]
 
-    local input_im_original = data.train_im:index(1,v)
-    local input_attr_original = data.train_attr:index(1,v)
+    -- load data and augmentation (horizontal flip)
+    local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
+    local inputs = {input_attr:cuda(), input_im:cuda()}
+    collectgarbage()
 
-    input_im = torch.Tensor(input_im_original:size(1), 3, opt.scales[1], opt.scales[1])
-    input_attr = torch.Tensor(input_attr_original:size(1), input_attr_original:size(2))
-    for i = 1, input_im_original:size(1) do
-      input_im[i] = opt.preprocess_train(image.scale(input_im_original[i], opt.scales[1], opt.scales[1]))
-      input_attr[i] = input_attr_original[i]
-    end
-
-    inputs = {input_attr:cuda(), input_im:cuda()}
-
-
+    
     --[[
           forward for reconstruction
           >> vae_encoder > var_encoder > sampling_z > var_decoder > vae_decoder
