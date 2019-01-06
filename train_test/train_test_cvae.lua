@@ -50,11 +50,13 @@ function train()
     local inputs = {input_attr:cuda(), input_im:cuda()}
     collectgarbage()
 
+    print(input_im:max(), input_im:min())
     --[[  update from reconstruction
           forward pass: cvae_encoder -> sampling_z -> cvae_decoder 
           backward pass: data recon -> sampling_z + KLD -> cvae_encoder
     --]]
 
+    --[[
     -- encoder > sampling > decoder
     local output_mean_log_var = cvae_encoder:forward({inputs[1], inputs[2]});
     local latent_z = sampling_z:forward(output_mean_log_var):clone()
@@ -100,6 +102,7 @@ function train()
     timer:reset()
     dataTimer:reset()
     collectgarbage()
+    --]]
   end
   print(('Train loss (vae encoder, vae decoder: %.3f, %.3f'):format(err_vae_encoder_total/N, err_vae_decoder_total/N))
 end
