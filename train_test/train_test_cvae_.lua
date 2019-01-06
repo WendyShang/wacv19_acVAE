@@ -59,6 +59,7 @@ function train()
   local size = #indices
   local tic = torch.tic()
   local err_cvae_encoder_total, err_cvae_decoder_total = 0, 0
+  local N, err_vae_encoder_total, err_vae_decoder_total, err_gan_total = 0, 0.0, 0.0, 0.0
   local N = 0
   local reconstruction
   local inputs
