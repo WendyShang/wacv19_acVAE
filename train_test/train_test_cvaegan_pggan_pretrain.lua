@@ -241,8 +241,9 @@ function val()
   end
 
   if epoch == 1 then
-    image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im_original:float():add(1):mul(0.5)))
+    image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im:float():add(1):mul(0.5)))
   end
+  
   --(1) test reconstruction 
   from_rgb_encoder:forward(val_im)
   vae_encoder:forward({val_attr_tensor, from_rgb_encoder.output})

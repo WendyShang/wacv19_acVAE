@@ -438,8 +438,9 @@ function val(opt)
 
   --(0) save the original image
   if epoch == 1 then
-    image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im_original:add(1):mul(0.5)))
+    image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im:float():add(1):mul(0.5)))
   end
+  
   --(1) test reconstruction
   local val_attention_vector = attention:forward(val_inputs_attention)
   local val_attention_attr   = attention_connection:forward({val_attr_tensor, val_attention_vector})
