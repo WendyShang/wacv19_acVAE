@@ -142,6 +142,7 @@ end
 function val()
   cvae_encoder:evaluate(); cvae_decoder:evaluate(); prior:evaluate();
 
+  --[[
   if (val_im == nil) and (val_attr == nil) then
     for n, sample in valLoader:run() do
       if n == 1 then
@@ -154,6 +155,22 @@ function val()
 
   if epoch == 1 then
     image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im:float():add(1):mul(0.5)))
+  end
+  --]]
+  local val_attr = data.val_attr[{{1, 128}}]
+  local val_im_original = data.val_im[{{1, 128}}]
+  local val_attr = torch.Tensor(val_attr:size(1), val_attr:size(2))
+  local val_im = torch.Tensor(val_im_original:size(1), 3, opt.scales[1], opt.scales[1])
+  for i = 1, val_im_original:size(1) do
+    val_im[i] = opt.preprocess_test(image.scale(val_im_original[i], opt.scales[1], opt.scales[1]))
+    val_attr[i] = val_attr[i]
+  end
+
+  val_attr = val_attr:cuda()
+  val_im = val_im:cuda()
+
+  if epoch == 1 then
+    image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im_original:float():add(1):mul(0.5)))
   end
 
   --(1) test reconstruction 
