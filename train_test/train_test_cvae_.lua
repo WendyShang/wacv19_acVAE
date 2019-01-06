@@ -53,6 +53,7 @@ function train()
   --]]
 
   epoch = epoch or 1
+  print_freq = opt.print_freq or 1
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
   local indices = torch.randperm(data.train_im:size(1)):long():split(opt.batchSize)
   indices[#indices] = nil
