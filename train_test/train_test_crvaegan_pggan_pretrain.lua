@@ -377,10 +377,7 @@ function train(opt)
     timer:reset()
     collectgarbage()
   end
-  if epoch == 1 then
-    image.save(opt.save .. 'original.png', image.toDisplayTensor(input_im:float():add(1):mul(0.5)))
-  end
-  --image.save(opt.save .. 'recon_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha1 .. opt.alpha2 .. '_beta_' .. opt.beta .. '.png', image.toDisplayTensor(reconstruction:add(1):mul(0.5))) 
+  
   print(('Train loss (KLD, Recon, ReconZ: '..'%.2f ,'..'%.2f ,' ..'%.2f ,'):format(KLD_total/N, Recon_total/N, ReconZ_total/N))
 end
 
@@ -403,7 +400,7 @@ function val(opt)
   if epoch == 1 then
     image.save(opt.save .. 'original.png', image.toDisplayTensor(val_im:float():add(1):mul(0.5)))
   end
-  
+
   --(1) test reconstruction 
   from_rgb_encoder:forward(val_im)
   vae_encoder:forward({val_attr,from_rgb_encoder.output})
