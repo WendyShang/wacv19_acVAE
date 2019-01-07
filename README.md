@@ -13,42 +13,36 @@ luarocks install cudnn
   - For dataloading purpose, a t7 file needs to be placed under `gen/` folder and can be downloaded from [here](https://www.dropbox.com/s/grdyx11gif0v5uv/celeba.t7?dl=0).
 
 ## 1st Stage Training (64x64)
-  - To train with conditional VAE, 
-```bash
-CUDA_VISIBLE_DEVICES=1 th main.lua -data /local/wshang/celeba_align_loose_crop/ -save /local/wshang/test_cond_crVAE/ -alpha 0.0001 -LR 0.0003 -eps 1e-6 -mom 0.9 -step 60 -latentType cvae -manualSeed 1196 -stage 1
-/local/wshang/test_cond_crVAE/allconv_cvae_beta_0_LR_0.0003_alpha_0.0001_beta1_0.9_seed_1196/
-``` 
   - To train with conditional GAN,
 ```bash
-CUDA_VISIBLE_DEVICES=2 th main.lua -data /local/wshang/celeba_align_loose_crop/ -save /local/wshang/test_cond_crVAE/ -dataset celeba -LR 0.0002 -latentType cgan -eps 1e-6 -mom 0.9 -step 60 -manualSeed 96 -attrDim 40 -beta1 0.5
-/local/wshang/test_cond_crVAE/allconv_cgan_beta_0_LR_0.0002_alpha_1_beta1_0.5_seed_96/
+th main.lua -data [data_path] -save [save_path] -dataset celeba -LR 0.0002 -latentType cgan -eps 1e-6 -mom 0.9 -step 60 -manualSeed 196 -attrDim 40 -beta1 0.5
 ```
-  - To train with conditional VAE-GAN, 
+  - To train with Conditional VAE-GAN (CVAE-GAN)
 ```bash
-th main_mnist.lua -LR 0.0003 -alpha 0.001 -latentType baseline -dataset mnist_28x28 -baseChannels 32 -nEpochs 200 -eps 1e-5 -mom 0.1 -step 50 -save /path/to/save/ -dynamicMNIST /path/to/dynamics/mnist/ -binaryMNIST /path/to/binary/mnist/
+th main.lua -data [data_path] -save [save_path] -dataset celeba -nGPU 1 -alpha 0.0003 -LR 0.0003 -latentType cvaegan_pggan_pretrain -stage 1 -batchSize 128 -eps 1e-6 -mom 0.9 -step 60 -nEpochs 150 -manualSeed 196 -print_freq 100 -beta1 0.5 -beta 0.0025 -fakeLabel 4
 ```
-  - To train with channel-recurrent conditional VAE-GAN, 
+  - To train with Channel-Recurrent Conditional VAE-GAN (CRVAE-GAN)
 ```bash
-th main_mnist.lua -LR 0.0003 -alpha 0.001 -latentType conv -dataset mnist_28x28 -baseChannels 32 -nEpochs 200 -eps 1e-5 -mom 0.1 -step 50 -save /path/to/save/ -dynamicMNIST /path/to/dynamics/mnist/ -binaryMNIST /path/to/binary/mnist/
+th main.lua -data [data_path] -save [save_path] -dataset celeba -nGPU 1 -alpha1 0.0003 -alpha2 0.0002 -LR 0.001 -latentType crvaegan_pggan_pretrain -stage 1 -batchSize 128 -eps 1e-6 -mom 0.9 -step 60 -nEpochs 150 -manualSeed 196 -print_freq 100 -beta1 0.5 -beta 0.0025 -kappa 0.01 -fakeLabel 4 -timeStep 8
 ```
-  - To train with attentive channel-recurrent conditional VAE-GAN, 
+  - To train with Attentive Channel-Recurrent Conditional VAE-GAN (ACVAE-GAN)
 ```bash
-th main_mnist.lua -LR 0.003 -timeStep 8 -alpha 0.001 -latentType lstm -dataset mnist_28x28 -baseChannels 32 -nEpochs 200 -eps 1e-5 -mom 0.1 -step 50 -save /path/to/save/ -dynamicMNIST /path/to/dynamics/mnist/ -binaryMNIST /path/to/binayr/mnist/
+th main.lua -data [data_path] -save [save_path] -dataset celeba -nGPU 1 -alpha1 0.0003 -alpha2 0.0002 -LR 0.001 -latentType acvaegan_pggan_pretrain -stage 1 -batchSize 128 -eps 1e-6 -mom 0.9 -step 60 -nEpochs 150 -manualSeed 196 -print_freq 100 -beta1 0.5 -beta 0.0025 -kappa 0.01 -fakeLabel 4 -timeStep 8 -rho 0.05 -rho_entreg 0.05
 ```
 
 ## 2nd Stage Training (128x128)
-We provide code to perform 2nd stage training on top of the 1st stage models for VAE-GAN, crVAE-GAN and acVAE-GAN using the progressive growing scheme on inference, generation and discriminator networks, provided that the training of the 1st stage models is completed. 
-  - To train with conditional VAE-GAN, 
+  - For the 2nd stage training, models are initialized from the respective models from the 1st stage training.
+  - To train with Progressive-Growing Conditional VAE-GAN (CVAE-GAN)
 ```bash
-th main_mnist.lua -LR 0.0003 -alpha 0.001 -latentType baseline -dataset mnist_28x28 -baseChannels 32 -nEpochs 200 -eps 1e-5 -mom 0.1 -step 50 -save /path/to/save/ -dynamicMNIST /path/to/dynamics/mnist/ -binaryMNIST /path/to/binary/mnist/
+th main.lua -data [data_path] -save [save_path] -dataset celeba -nGPU 1 -alpha 0.0003 -LR 0.0001 -latentType cvaegan_pggan -stage 2 -batchSize 64 -eps 1e-6 -mom 0.9 -step 60 -nEpochs 150 -manualSeed 196 -print_freq 200 -beta1 0.9 -beta 0.0025 -fakeLabel 4 -init_weight_from [pretrained_model]
 ```
-  - To train with channel-recurrent conditional VAE-GAN, 
+  - To train with Progressive-Growing Channel-Recurrent Conditional VAE-GAN (CRVAE-GAN)
 ```bash
-th main_mnist.lua -LR 0.0003 -alpha 0.001 -latentType conv -dataset mnist_28x28 -baseChannels 32 -nEpochs 200 -eps 1e-5 -mom 0.1 -step 50 -save /path/to/save/ -dynamicMNIST /path/to/dynamics/mnist/ -binaryMNIST /path/to/binary/mnist/
+th main.lua -data [data_path] -save [save_path] -dataset celeba -nGPU 1 -alpha1 0.0003 -alpha2 0.0002 -LR 0.0003 -latentType crvaegan_pggan -stage 2 -batchSize 64 -eps 1e-6 -mom 0.9 -step 60 -nEpochs 150 -manualSeed 196 -print_freq 200 -beta1 0.9 -beta 0.0025 -fakeLabel 4 -timeStep 8 -kappa 0.01 -init_weight_from [pretrained_model]
 ```
-  - To train with attentive channel-recurrent conditional VAE-GAN, 
+  - To train with Progressive-Growing Attentive Channel-Recurrent Conditional VAE-GAN (ACVAE-GAN)
 ```bash
-th main_mnist.lua -LR 0.003 -timeStep 8 -alpha 0.001 -latentType lstm -dataset mnist_28x28 -baseChannels 32 -nEpochs 200 -eps 1e-5 -mom 0.1 -step 50 -save /path/to/save/ -dynamicMNIST /path/to/dynamics/mnist/ -binaryMNIST /path/to/binayr/mnist/
+th main.lua -data [data_path] -save [save_path] -dataset celeba -nGPU 1 -alpha1 0.0003 -alpha2 0.0002 -LR 0.0003 -latentType acvaegan_pggan -stage 2 -batchSize 64 -eps 1e-6 -mom 0.9 -step 60 -nEpochs 150 -manualSeed 196 -print_freq 200 -beta1 0.9 -beta 0.0025 -fakeLabel 4 -timeStep 8  -kappa 0.01 -rho 0.05 -rho_entreg 0.05 -init_weight_from [pretrained_model]
 ```
 
 ## Citation
@@ -83,3 +77,4 @@ Torch is a **fantastic framework** for deep learning research, which allows fast
  - Generating Faces with Torch: https://github.com/skaae/torch-gan
  - Attr2Img: https://github.com/xcyan/eccv16_attr2img
  - CIFAR10: https://github.com/szagoruyko/cifar.torch  
+ - Text2Img: https://github.com/reedscot/icml2016

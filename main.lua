@@ -16,17 +16,7 @@ require 'utils.GKLDCriterion';
 DataLoader = require 'utils.dataloader';
 init = require 'utils.init';
 opts = require 'opts';
---require 'utils.L1HingeCriterion';
---require 'layers.LinearMix'
---require 'layers.LinearMix2'
---require 'utils.Reparametrize'
---require 'utils.Uniform';
---require 'utils.KLDCriterion';
 require 'utils.RNNinit';
-
-
-image_utils = require 'utils.image_utils';
-
 
 --House Keeping
 opt = opts.parse(arg)
@@ -38,7 +28,6 @@ torch.setdefaulttensortype('torch.FloatTensor')
 torch.manualSeed(opt.manualSeed)
 cutorch.manualSeedAll(opt.manualSeed)
 
---opt.data = '/local/wshang/celeba_align_loose_crop/'
 
 --Saving Dir Name
 opt.save = opt.save  .. opt.netType .. '_' .. opt.latentType  .. '_beta_' .. opt.beta .. '_LR_' .. opt.LR
