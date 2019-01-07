@@ -15,7 +15,7 @@ luarocks install cudnn
 ## 1st Stage Training (64x64)
   - To train with conditional GAN,
 ```bash
-th main.lua -data [data_path] -save [save_path] -dataset celeba -LR 0.0002 -latentType cgan -eps 1e-6 -mom 0.9 -step 60 -manualSeed 96 -attrDim 40 -beta1 0.5
+th main.lua -data [data_path] -save [save_path] -dataset celeba -LR 0.0002 -latentType cgan -eps 1e-6 -mom 0.9 -step 60 -manualSeed 196 -attrDim 40 -beta1 0.5
 ```
   - To train with Conditional VAE-GAN (CVAE-GAN)
 ```bash
@@ -77,3 +77,4 @@ Torch is a **fantastic framework** for deep learning research, which allows fast
  - Generating Faces with Torch: https://github.com/skaae/torch-gan
  - Attr2Img: https://github.com/xcyan/eccv16_attr2img
  - CIFAR10: https://github.com/szagoruyko/cifar.torch  
+ - Text2Img: https://github.com/reedscot/icml2016
