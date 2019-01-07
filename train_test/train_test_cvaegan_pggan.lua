@@ -102,7 +102,6 @@ local function makeDataParallelTable(model, nGPU)
        require 'stn'
        cudnn.fastest, cudnn.benchmark = fastest, benchmark
     end)
-  --dpt.gradInput = nil
   model = dpt:cuda()
   return model
 end
@@ -243,7 +242,6 @@ function train()
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
   local size = trainLoader:size()
   local N, err_vae_encoder_total, err_vae_decoder_total, err_gan_total = 0, 0.0, 0.0, 0.0
-  local reconstruction, inputs, input_im, input_attr
   local gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0
   local label_recon, label_sample, label_gan = torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda()
   local tic = torch.tic()
@@ -258,10 +256,10 @@ function train()
           load data (horizontal flip) 
     --]]
 
-    input_im, input_attr = sample.input:cuda(), sample.target:cuda()
-    inputs = {input_attr, input_im}
+    local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
+    local inputs = {input_attr, input_im}
+    collectgarbage()
 
-    local reconstruction_sample, z_sample, latent_z, df_do
 
     --[[
           inference and backprop
@@ -274,10 +272,10 @@ function train()
     from_rgb_encoder:forward(inputs[2])
     merge_from_rgb_encoder:forward(from_rgb_encoder.output)
     local output_mean_log_var = vae_encoder:forward({inputs[1], merge_from_rgb_encoder.output});
-    latent_z = sampling_z(output_mean_log_var):clone()
+    local latent_z = sampling_z(output_mean_log_var):clone()
     vae_decoder:forward({inputs[1], latent_z})
     to_rgb:forward(vae_decoder.output)
-    reconstruction = merge_to_rgb:forward(to_rgb.output):clone()
+    local reconstruction = merge_to_rgb:forward(to_rgb.output):clone()
 
     -- prior > KL divergence
     local output_prior = prior:forward(inputs[1])
@@ -337,7 +335,7 @@ function train()
     local z_sample = sampling_z:forward(output_prior)
     vae_decoder:forward({inputs[1], z_sample})
     to_rgb:forward(vae_decoder.output)
-    reconstruction_sample = merge_to_rgb:forward(to_rgb.output):clone()
+    local reconstruction_sample = merge_to_rgb:forward(to_rgb.output):clone()
 
     -- GAN for sampled images
     from_rgb:forward(reconstruction_sample)

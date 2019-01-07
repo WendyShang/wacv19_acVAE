@@ -75,7 +75,6 @@ function train()
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
   local size = trainLoader:size()
   local N, err_vae_encoder_total, err_vae_decoder_total, err_gan_total = 0, 0.0, 0.0, 0.0
-  local reconstruction, inputs, input_im, input_attr
   local gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0
   local label_recon, label_sample, label_gan = torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda()
   local tic = torch.tic()
@@ -89,12 +88,10 @@ function train()
           load data (horizontal flip) 
     --]]
 
-    -- load data and augmentation (horizontal flip)
     local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
     local inputs = {input_attr:cuda(), input_im:cuda()}
     collectgarbage()
 
-    local reconstruction_sample, z_sample, latent_z, df_do
 
     --[[
           inference and backprop
@@ -106,9 +103,9 @@ function train()
     -- encoder > sampling > decoder
     from_rgb_encoder:forward(inputs[2])
     local output_mean_log_var = vae_encoder:forward({inputs[1], from_rgb_encoder.output});
-    latent_z = sampling_z(output_mean_log_var):clone()
+    local latent_z = sampling_z(output_mean_log_var):clone()
     vae_decoder:forward({inputs[1], latent_z})
-    reconstruction = to_rgb:forward(vae_decoder.output):clone()
+    local reconstruction = to_rgb:forward(vae_decoder.output):clone()
 
     -- prior > KL divergence
     local output_prior = prior:forward(inputs[1])
@@ -162,7 +159,7 @@ function train()
     local output_prior = prior:forward(inputs[1])
     local z_sample = sampling_z:forward(output_prior)
     vae_decoder:forward({inputs[1], z_sample})
-    reconstruction_sample = to_rgb:forward(vae_decoder.output):clone()
+    local reconstruction_sample = to_rgb:forward(vae_decoder.output):clone()
 
     -- GAN for sampled images
     from_rgb:forward(reconstruction_sample)

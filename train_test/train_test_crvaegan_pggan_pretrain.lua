@@ -26,10 +26,6 @@ else
   optimState_var_enc      = { learningRate = opt.LR/opt.timeStep, optimize = true, numUpdates = 0}
   optimState_var_dec      = { learningRate = opt.LR/opt.timeStep, optimize = true, numUpdates = 0}
   optimState_prior        = { learningRate = opt.LR, optimize = true, numUpdates = 0}
-  --optimState_disc         = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
-  --optimState_recon        = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
-  --optimState_feature      = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
-  --optimState_from_rgb     = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
   optimState_disc         = { learningRate = opt.LR, optimize = true, numUpdates = 0, step = opt.discRatio}
   optimState_recon        = { learningRate = opt.LR, optimize = true, numUpdates = 0}
   optimState_feature      = { learningRate = opt.LR/2, optimize = true, numUpdates = 0}
@@ -161,7 +157,6 @@ function train(opt)
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
   local size = trainLoader:size()
   local N, KLD_total, Recon_total, ReconZ_total, err_gan_total = 0, 0.0, 0.0, 0.0, 0.0
-  local reconstruction, input_im, input_attr
   local gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0
   local label_recon, label_sample, label_gan = torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda()
   local tic = torch.tic()
@@ -177,7 +172,7 @@ function train(opt)
 
     -- load data and augmentation (horizontal flip)
     local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
-    local inputs = {input_attr:cuda(), input_im:cuda()}
+    local inputs = {input_attr, input_im}
     collectgarbage()
 
 
@@ -195,7 +190,7 @@ function train(opt)
     local latent_z = sampling_z:forward(output_mean_log_var)
     local output_decoder_before = var_decoder:forward({inputs[1], latent_z})
     vae_decoder:forward(output_decoder_before)
-    reconstruction = to_rgb:forward(vae_decoder.output):clone()
+    local reconstruction = to_rgb:forward(vae_decoder.output):clone()
 
     -- prior > KL divergence
     local output_prior = prior:forward(inputs[1])
@@ -368,17 +363,16 @@ function train(opt)
     -- print scores
     iteration = iteration + 1
     if t % print_freq == 1 or t == size then
-      -- print only every 10 epochs
       print((' | Train: [%d][%d/%d]    Time %.3f  KL %7.3f (%7.3f)  recon %7.3f (%7.3f)  recon_Z %7.3f (%7.3f)  gan %7.3f (%7.3f)  gan update rate %.3f (erate %.3f)'):format(
           epoch, t, size, timer:time().real,  KLDerr, KLD_total/N, Dislikerr, Recon_total/N, ZDislikerr, ReconZ_total/N, gan_err, err_gan_total/N, gan_update_rate/iteration, gan_error_rate/iteration))
       gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0.0
     end
-
     timer:reset()
+    dataTimer:reset()
     collectgarbage()
   end
   
-  print(('Train loss (KLD, Recon, ReconZ: '..'%.2f ,'..'%.2f ,' ..'%.2f ,'):format(KLD_total/N, Recon_total/N, ReconZ_total/N))
+  print(('Train loss (KLD, Recon, ReconZ: %.3f, %.3f, %.3f'):format(KLD_total/N, Recon_total/N, ReconZ_total/N))
 end
 
 function val(opt)

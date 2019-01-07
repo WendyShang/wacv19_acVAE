@@ -167,7 +167,6 @@ function train(opt)
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
   local size = trainLoader:size()
   local N, KLD_total, Recon_total, ReconZ_total, err_gan_total = 0, 0.0, 0.0, 0.0, 0.0
-  local reconstruction, input_im, input_attr
   local gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0
   local label_recon, label_sample, label_gan = torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda()
   local inputs_attention = torch.ones(opt.batchSize, opt.attrDim, opt.timeStep):cuda()
@@ -206,7 +205,7 @@ function train(opt)
     local latent_z = sampling_z:forward(output_mean_log_var)
     local output_decoder_before = var_decoder:forward({inputs[1], latent_z})
     vae_decoder:forward(output_decoder_before)
-    reconstruction = to_rgb:forward(vae_decoder.output):clone()
+    local reconstruction = to_rgb:forward(vae_decoder.output):clone()
 
     -- prior > KL divergence
     local output_prior = prior:forward(inputs[1])
@@ -383,12 +382,8 @@ function train(opt)
     local gan_erate = 1 - top1/outputs_disc:size(1)
     gan_error_rate = gan_error_rate + gan_erate
     optimState_disc.optimize = true    
-    --optimState_feature.optimize = true
-    --optimState_from_rgb.optimizer = true
     if gan_erate < opt.margin then
       optimState_disc.optimize = false
-      --optimState_feature.optimize = false
-      --optimState_from_rgb.optimizer = false
     else
       -- update discriminator, 
       gan_update_rate = gan_update_rate + 1
@@ -400,25 +395,22 @@ function train(opt)
     from_rgb:backward(input_im_gan, disc_feature.gradInput[2])
     
     optim[opt.optimization .. '_gan'](f_disc, params_disc, optimState_disc)
-    --optim[opt.optimization .. '_gan'](f_disc_feature, params_feature, optimState_feature)
-    --optim[opt.optimization .. '_gan'](f_from_rgb, params_from_rgb, optimState_from_rgb)
     optim[opt.optimization](f_disc_feature, params_feature, optimState_feature)
     optim[opt.optimization](f_from_rgb, params_from_rgb, optimState_from_rgb)
 
     -- print scores
     iteration = iteration + 1
-    if t % print_freq == 0 or t == size then
-      -- print only every 10 epochs
+    if t % print_freq == 1 or t == size then
       print((' | Train: [%d][%d/%d]    Time %.3f  KL %7.3f (%7.3f)  recon %7.3f (%7.3f)  recon_Z %7.3f (%7.3f)  gan %7.3f (%7.3f)  gan update rate %.3f (erate %.3f)'):format(
           epoch, t, size, timer:time().real,  KLDerr, KLD_total/N, Dislikerr, Recon_total/N, ZDislikerr, ReconZ_total/N, gan_err, err_gan_total/N, gan_update_rate/iteration, gan_error_rate/iteration))
       gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0.0
     end
-
     timer:reset()
+    dataTimer:reset()
     collectgarbage()
   end
   
-  print(('Train loss (KLD, Recon, ReconZ: '..'%.2f ,'..'%.2f ,' ..'%.2f ,'):format(KLD_total/N, Recon_total/N, ReconZ_total/N))
+  print(('Train loss (KLD, Recon, ReconZ: %.3f, %.3f, %.3f'):format(KLD_total/N, Recon_total/N, ReconZ_total/N))
 end
 
 function val(opt)

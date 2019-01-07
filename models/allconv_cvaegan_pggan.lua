@@ -8,11 +8,14 @@ end
 local function createModel(opt)
    local encoder = nn.Sequential()
    local from_rgb_encoder = nn.Sequential()
+   local encoder_conv = nn.Sequential()
    local decoder = nn.Sequential()
+   local decoder_conv = nn.Sequential()
    local to_rgb = nn.Sequential()
    local prior = nn.Sequential()
    local gan = nn.Sequential()
    local from_rgb = nn.Sequential()
+   local disc_conv = nn.Sequential()
    local disc = nn.Sequential()
    local baseChannels = opt.baseChannels
    local w = opt.latentDims[1]
@@ -21,23 +24,31 @@ local function createModel(opt)
    local mom = opt.mom
    local attribute_dim = opt.attrDim
 
-   if opt.dataset == 'celeba' then
+   if opt.dataset == 'bird' or opt.dataset == 'celeba' or opt.dataset == 'celeba128' then
       ---------------------------------
       -- Encoder (Inference network) --
       -- convolution net -> FC layer --
       ---------------------------------
-      
+
       from_rgb_encoder:add(ConcatAct())
       from_rgb_encoder:add(nn.JoinTable(2))
       from_rgb_encoder:add(cudnn.ReLU(true))
-      from_rgb_encoder:add(cudnn.SpatialConvolution(6, baseChannels, 1, 1, 1, 1, 0, 0))
+      from_rgb_encoder:add(cudnn.SpatialConvolution(6, baseChannels, 3, 3, 1, 1, 1, 1))
       from_rgb_encoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       from_rgb_encoder:add(cudnn.ReLU(false))
 
-      local encoder_sub = nn.Sequential()
+      -- 128 x 128 --> 128 x 128
+      encoder_conv:add(cudnn.SpatialConvolution(baseChannels, baseChannels/2, 3, 3, 1, 1, 1, 1))
+      encoder_conv:add(nn.SpatialBatchNormalization(baseChannels/2, eps, mom))
+      encoder_conv:add(cudnn.ReLU(true))
+      encoder_conv:add(cudnn.SpatialConvolution(baseChannels/2, baseChannels, 3, 3, 1, 1, 1, 1))
+      encoder_conv:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
+      encoder_conv:add(cudnn.ReLU(false))
 
+      local encoder_sub = nn.Sequential()
+      
       -- conv1: 64 x 64 --> 32 x 32
-      encoder_sub:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 5, 5, 2, 2, 2, 2))
+      encoder_sub:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 2, 2, 1, 1))
       encoder_sub:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       encoder_sub:add(ConcatAct())
       encoder_sub:add(nn.JoinTable(2))
@@ -137,9 +148,17 @@ local function createModel(opt)
       decoder:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 3, 3, 1, 1, 1, 1))
       decoder:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
       decoder:add(nn.LeakyReLU(0.1))
+
+      -- 128 x 128 --> 128 x 128
+      decoder_conv:add(cudnn.SpatialConvolution(baseChannels, baseChannels/2, 3, 3, 1, 1, 1, 1))
+      decoder_conv:add(nn.SpatialBatchNormalization(baseChannels/2, eps, mom))
+      decoder_conv:add(nn.LeakyReLU(0.1))
+      decoder_conv:add(cudnn.SpatialConvolution(baseChannels/2, baseChannels, 3, 3, 1, 1, 1, 1))
+      decoder_conv:add(nn.SpatialBatchNormalization(baseChannels, eps, mom))
+      decoder_conv:add(nn.LeakyReLU(0.1))
       
       to_rgb:add(cudnn.SpatialConvolution(baseChannels, 3, 1, 1, 1, 1, 0, 0))
-      to_rgb:add(nn.Tanh())
+      to_rgb:add(nn.Tanh());
 
       -------------------
       -- Prior --
@@ -160,6 +179,12 @@ local function createModel(opt)
       baseChannels = baseChannels/2
       from_rgb:add(cudnn.SpatialConvolution(3, baseChannels, 1, 1, 1, 1, 0, 0))
       from_rgb:add(cudnn.ReLU(false))
+
+      -- 128 x 128 --> 128 x 128
+      disc_conv:add(cudnn.SpatialConvolution(baseChannels, baseChannels/2, 3, 3, 1, 1, 1, 1))
+      disc_conv:add(cudnn.ReLU(true))
+      disc_conv:add(cudnn.SpatialConvolution(baseChannels/2, baseChannels, 3, 3, 1, 1, 1, 1))
+      disc_conv:add(cudnn.ReLU(false))
 
       gan:add(cudnn.SpatialConvolution(baseChannels, baseChannels, 5, 5, 1, 1, 2, 2))
       gan:add(cudnn.SpatialMaxPooling(2, 2))
@@ -220,7 +245,37 @@ local function createModel(opt)
             v.bias:zero()
          end
       end
+      for k, v in pairs(encoder_conv:findModules(name)) do
+         local n = v.kW*v.kH*v.nOutputPlane
+         v.weight:uniform(-1*math.sqrt(1/n), math.sqrt(1/n))
+         if not opt.bias then
+            v.bias = nil
+            v.gradBias = nil
+         else
+            v.bias:zero()
+         end
+      end
+      for k, v in pairs(from_rgb_encoder:findModules(name)) do
+         local n = v.kW*v.kH*v.nOutputPlane
+         v.weight:uniform(-1*math.sqrt(1/n), math.sqrt(1/n))
+         if not opt.bias then
+            v.bias = nil
+            v.gradBias = nil
+         else
+            v.bias:zero()
+         end
+      end
       for k, v in pairs(decoder:findModules(name)) do
+         local n = v.kW*v.kH*v.nOutputPlane
+         v.weight:uniform(-1*math.sqrt(1/n), math.sqrt(1/n))
+         if not opt.bias then
+            v.bias = nil
+            v.gradBias = nil
+         else
+            v.bias:zero()
+         end
+      end
+      for k, v in pairs(decoder_conv:findModules(name)) do
          local n = v.kW*v.kH*v.nOutputPlane
          v.weight:uniform(-1*math.sqrt(1/n), math.sqrt(1/n))
          if not opt.bias then
@@ -240,7 +295,7 @@ local function createModel(opt)
             v.bias:zero()
          end
       end
-      for k, v in pairs(from_rgb_encoder:findModules(name)) do
+      for k, v in pairs(disc_conv:findModules(name)) do
          local n = v.kW*v.kH*v.nOutputPlane
          v.weight:uniform(-1*math.sqrt(1/n), math.sqrt(1/n))
          if not opt.bias then
@@ -276,6 +331,10 @@ local function createModel(opt)
          v.weight:fill(1)
          v.bias:zero()
       end
+      for k, v in pairs(encoder_conv:findModules(name)) do
+         v.weight:fill(1)
+         v.bias:zero()
+      end
       for k, v in pairs(from_rgb_encoder:findModules(name)) do
          v.weight:fill(1)
          v.bias:zero()
@@ -284,7 +343,15 @@ local function createModel(opt)
          v.weight:fill(1)
          v.bias:zero()
       end
+      for k, v in pairs(decoder_conv:findModules(name)) do
+         v.weight:fill(1)
+         v.bias:zero()
+      end
       for k, v in pairs(disc:findModules(name)) do
+         v.weight:fill(1)
+         v.bias:zero()
+      end
+      for k, v in pairs(disc_conv:findModules(name)) do
          v.weight:fill(1)
          v.bias:zero()
       end
@@ -311,16 +378,25 @@ local function createModel(opt)
       encoder:apply(function(m)
          if m.setMode then m:setMode(1, 1, 1) end
       end)
+      encoder_conv:apply(function(m)
+         if m.setMode then m:setMode(1, 1, 1) end
+      end)
       from_rgb_encoder:apply(function(m)
          if m.setMode then m:setMode(1, 1, 1) end
       end)
       decoder:apply(function(m)
          if m.setMode then m:setMode(1, 1, 1) end
       end)
+      decoder_conv:apply(function(m)
+         if m.setMode then m:setMode(1, 1, 1) end
+      end)
       to_rgb:apply(function(m)
          if m.setMode then m:setMode(1, 1, 1) end
       end)
       disc:apply(function(m)
+         if m.setMode then m:setMode(1, 1, 1) end
+      end)
+      disc_conv:apply(function(m)
          if m.setMode then m:setMode(1, 1, 1) end
       end)
       from_rgb:apply(function(m)
@@ -337,8 +413,10 @@ local function createModel(opt)
    local ReconCriterion = nn.MSECriterion()
 
    encoder:cuda()
+   encoder_conv:cuda()
    from_rgb_encoder:cuda()
    decoder:cuda()
+   decoder_conv:cuda()
    to_rgb:cuda()
    prior:cuda()
    ReconCriterion:cuda()
@@ -348,11 +426,13 @@ local function createModel(opt)
    -- GAN-related
    local BCECriterion = nn.BCECriterion():cuda()
    disc:apply(function(m) if torch.type(m):find('Convolution') then m.bias:zero() end end)
+   disc_conv:apply(function(m) if torch.type(m):find('Convolution') then m.bias:zero() end end)
    from_rgb:apply(function(m) if torch.type(m):find('Convolution') then m.bias:zero() end end)
    disc:cuda()
+   disc_conv:cuda()
    from_rgb:cuda()
 
-   return {encoder, from_rgb_encoder, decoder, to_rgb, prior, sampling_z, from_rgb, disc}, {KLD, ReconCriterion, BCECriterion}
+   return {encoder, encoder_conv, from_rgb_encoder, decoder, decoder_conv, to_rgb, prior, sampling_z, from_rgb, disc_conv, disc}, {KLD, ReconCriterion, BCECriterion}
 end
 
 return createModel

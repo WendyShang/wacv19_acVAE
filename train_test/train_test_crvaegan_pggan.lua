@@ -141,10 +141,6 @@ if opt.init_weight_from ~= 'none' then
   optimState_var_enc      = { learningRate = opt.LR_mult*opt.LR/opt.timeStep, optimize = true, numUpdates = 0}
   optimState_var_dec      = { learningRate = opt.LR_mult*opt.LR/opt.timeStep, optimize = true, numUpdates = 0}
   optimState_prior        = { learningRate = opt.LR_mult*opt.LR, optimize = true, numUpdates = 0}
-  --optimState_disc         = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
-  --optimState_recon        = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
-  --optimState_feature      = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
-  --optimState_from_rgb     = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
   optimState_disc         = { learningRate = opt.LR_mult*opt.LR, optimize = true, numUpdates = 0, step = opt.discRatio}
   optimState_recon        = { learningRate = opt.LR_mult*opt.LR, optimize = true, numUpdates = 0}
   optimState_feature      = { learningRate = opt.LR_mult*opt.LR/2, optimize = true, numUpdates = 0}
@@ -177,10 +173,6 @@ else
   optimState_var_enc      = { learningRate = opt.LR/opt.timeStep, optimize = true, numUpdates = 0}
   optimState_var_dec      = { learningRate = opt.LR/opt.timeStep, optimize = true, numUpdates = 0}
   optimState_prior        = { learningRate = opt.LR, optimize = true, numUpdates = 0}
-  --optimState_disc         = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
-  --optimState_recon        = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
-  --optimState_feature      = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
-  --optimState_from_rgb     = { learningRate = opt.LR/2, beta1 = opt.beta1, optimize = true, numUpdates = 0, step = opt.discRatio}
   optimState_disc         = { learningRate = opt.LR, optimize = true, numUpdates = 0, step = opt.discRatio}
   optimState_recon        = { learningRate = opt.LR, optimize = true, numUpdates = 0}
   optimState_feature      = { learningRate = opt.LR/2, optimize = true, numUpdates = 0}
@@ -343,7 +335,6 @@ function train(opt)
   print('==>'.." online epoch # " .. epoch .. ' [batchSize = ' .. opt.batchSize .. ']')
   local size = trainLoader:size()
   local N, KLD_total, Recon_total, ReconZ_total, err_gan_total = 0, 0.0, 0.0, 0.0, 0.0
-  local reconstruction, input_im, input_attr
   local gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0
   local label_recon, label_sample, label_gan = torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda(), torch.ones(opt.batchSize):cuda()
   local tic = torch.tic()
@@ -358,8 +349,9 @@ function train(opt)
           load data (horizontal flip) 
     --]]
 
-    input_im, input_attr = sample.input:cuda(), sample.target:cuda()
-    inputs = {input_attr, input_im}
+    local input_im, input_attr = sample.input:cuda(), sample.target:cuda()
+    local inputs = {input_attr, input_im}
+    collectgarbage()
 
 
     --[[
@@ -378,7 +370,7 @@ function train(opt)
     local output_decoder_before = var_decoder:forward({inputs[1], latent_z})
     vae_decoder:forward(output_decoder_before)
     to_rgb:forward(vae_decoder.output)
-    reconstruction = merge_to_rgb:forward(to_rgb.output):clone()
+    local reconstruction = merge_to_rgb:forward(to_rgb.output):clone()
 
     -- prior > KL divergence
     local output_prior = prior:forward(inputs[1])
@@ -540,12 +532,8 @@ function train(opt)
     local gan_erate = 1 - top1/outputs_disc:size(1)
     gan_error_rate = gan_error_rate + gan_erate
     optimState_disc.optimize = true    
-    --optimState_feature.optimize = true
-    --optimState_from_rgb.optimizer = true
     if gan_erate < opt.margin then
       optimState_disc.optimize = false
-      --optimState_feature.optimize = false
-      --optimState_from_rgb.optimizer = false
     else
       -- update discriminator, 
       gan_update_rate = gan_update_rate + 1
@@ -557,15 +545,12 @@ function train(opt)
       from_rgb:backward(input_im_gan, merge_from_rgb.gradInput)
     end
     optim[opt.optimization .. '_gan'](f_disc, params_disc, optimState_disc)
-    --optim[opt.optimization .. '_gan'](f_disc_feature, params_feature, optimState_feature)
-    --optim[opt.optimization .. '_gan'](f_from_rgb, params_from_rgb, optimState_from_rgb)
     optim[opt.optimization](f_disc_feature, params_feature, optimState_feature)
     optim[opt.optimization](f_from_rgb, params_from_rgb, optimState_from_rgb)
 
     -- print scores
     iteration = iteration + 1
     if t % print_freq == 1 or t == size then
-      -- print only every 10 epochs
       print((' | Train: [%d][%d/%d]    Time %.3f (%.3f)  KL %7.3f (%7.3f)  recon %7.3f (%7.3f)  recon_Z %7.3f (%7.3f)  gan %7.3f (%7.3f)  gan update rate %.3f (erate %.3f)'):format(
           epoch, t, size, timer:time().real, dataTime, KLDerr, KLD_total/N, Dislikerr, Recon_total/N, ZDislikerr, ReconZ_total/N, gan_err, err_gan_total/N, gan_update_rate/iteration, gan_error_rate/iteration))
       gan_update_rate, gan_error_rate, iteration = 0.0, 0.0, 0.0
@@ -574,11 +559,8 @@ function train(opt)
     dataTimer:reset()
     collectgarbage()
   end
-  if epoch == 1 then
-    image.save(opt.save .. 'original.png', image.toDisplayTensor(input_im:float():add(1):mul(0.5)))
-  end
-  --image.save(opt.save .. 'recon_' .. epoch .. '_LR_' .. opt.LR .. '_alphas_' .. opt.alpha1 .. opt.alpha2 .. '_beta_' .. opt.beta .. '.png', image.toDisplayTensor(reconstruction:add(1):mul(0.5))) 
-  print(('Train loss (KLD, Recon, ReconZ: '..'%.2f ,'..'%.2f ,' ..'%.2f ,'):format(KLD_total/N, Recon_total/N, ReconZ_total/N))
+
+  print(('Train loss (KLD, Recon, ReconZ: %.3f, %.3f, %.3f'):format(KLD_total/N, Recon_total/N, ReconZ_total/N))
 end
 
 function val(opt)
